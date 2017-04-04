@@ -1193,6 +1193,9 @@ GLExtensions::GLExtensions(unsigned int in_contextID):
     }
 
     osg::setGLExtensionFuncPtr(glObjectLabel, "glObjectLabel", validContext);
+    osg::setGLExtensionFuncPtr(glPushDebugGroup, "glPushDebugGroup", validContext);
+    osg::setGLExtensionFuncPtr(glDebugMessageInsert, "glDebugMessageInsert", validContext);
+    osg::setGLExtensionFuncPtr(glPopDebugGroup, "glPopDebugGroup", validContext);
 }
 
 
