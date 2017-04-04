@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
+#include <sstream>
 
 #include <osg/Drawable>
 #include <osg/State>
@@ -592,11 +593,23 @@ void Drawable::setBound(const BoundingBox& bb) const
 
 
 void Drawable::compileGLObjects(RenderInfo& renderInfo) const
-{
-
-#ifdef OSG_GL_DISPLAYLISTS_AVAILABLE
+{    
+#ifdef OSG_GL_DISPLAYLISTS_AVAILABLE   
     if (!renderInfo.getState()->useVertexBufferObject(_supportsVertexBufferObjects && _useVertexBufferObjects) && _useDisplayList)
     {
+        State& state = *renderInfo.getState();
+
+        const GLExtensions* extensions = state.get<GLExtensions>();
+        std::stringstream buf;
+        buf << libraryName() << "::" << className();
+        if (getName().length() > 0)
+        {
+            buf << "::" << getName();
+        }
+        buf << "::compileGLObjects";
+        std::string debugGroup = buf.str();
+        extensions->glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, debugGroup.length(), debugGroup.c_str());
+
         // get the contextID (user defined ID of 0 upwards) for the
         // current OpenGL context.
         unsigned int contextID = renderInfo.getContextID();
@@ -616,6 +629,8 @@ void Drawable::compileGLObjects(RenderInfo& renderInfo) const
         drawInner(renderInfo);
 
         glEndList();
+
+        extensions->glPopDebugGroup();
     }
 #endif
 }
@@ -625,6 +640,18 @@ void Drawable::compileGLObjects(RenderInfo& renderInfo) const
 void Drawable::draw(RenderInfo& renderInfo) const
 {
     State& state = *renderInfo.getState();
+    
+    const GLExtensions* extensions = state.get<GLExtensions>();
+    std::stringstream buf;
+    buf << libraryName() << "::" << className();
+    if (getName().length() > 0)
+    {
+        buf << "::" << getName();
+    }
+    buf << "::draw";
+    std::string debugGroup = buf.str();
+    extensions->glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, debugGroup.length(), debugGroup.c_str());
+
     bool useVertexArrayObject = state.useVertexArrayObject(_useVertexArrayObject);
     if (useVertexArrayObject)
     {
@@ -692,6 +719,8 @@ void Drawable::draw(RenderInfo& renderInfo) const
 
         drawInner(renderInfo);
     }
+
+    extensions->glPopDebugGroup();
 }
 
 #endif

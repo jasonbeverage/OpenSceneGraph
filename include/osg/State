@@ -37,6 +37,7 @@
 #include <map>
 #include <set>
 #include <string>
+#include <sstream>
 
 #ifndef GL_TEXTURE0
 #define GL_TEXTURE0 0x84C0
@@ -1143,7 +1144,17 @@ class OSG_EXPORT State : public Referenced
                 if (!as.global_default_attribute.valid()) as.global_default_attribute = attribute->cloneType()->asStateAttribute();
 
                 as.last_applied_attribute = attribute;
+
+                std::stringstream buf;
+                buf << attribute->libraryName() << "::" << attribute->className();
+                if (!attribute->getName().empty())
+                {
+                    buf << " name=" << attribute->getName();
+                }
+                std::string debugGroup = buf.str();
+                _glExtensions->glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, debugGroup.length(), debugGroup.c_str());
                 attribute->apply(*this);
+                _glExtensions->glPopDebugGroup();
 
                 const ShaderComponent* sc = attribute->getShaderComponent();
                 if (as.last_applied_shadercomponent != sc)

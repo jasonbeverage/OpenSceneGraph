@@ -29,6 +29,7 @@
 #include <osg/GLU>
 
 #include <iterator>
+#include <sstream>
 
 using namespace osg;
 using namespace osgUtil;
@@ -957,6 +958,9 @@ void SceneView::draw()
 
     osg::State* state = _renderInfo.getState();
 
+    const GLExtensions* extensions = state->get<GLExtensions>();
+    extensions->glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, "osgUtil::SceneView::draw");
+
     // we in theory should be able to be able to bypass reset, but we'll call it just incase.
     //_state->reset();
     state->setFrameStamp(_frameStamp.get());
@@ -1395,6 +1399,8 @@ void SceneView::draw()
 #endif
 
     // OSG_NOTICE<<"SceneView  draw() DynamicObjectCount"<<getState()->getDynamicObjectCount()<<std::endl;
+
+    extensions->glPopDebugGroup();
 
 }
 
