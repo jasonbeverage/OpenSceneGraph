@@ -5,6 +5,7 @@
 #include <osg/Notify>
 #include <osg/Group>
 #include <osg/MatrixTransform>
+#include <osg/Texture2D>
 #include <osgDB/ReadFile>
 
 #include <osgDB/FileNameUtils>
@@ -13,6 +14,7 @@
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #include "tiny_gltf.h"
+#include <iomanip>
 
 using namespace tinygltf;
 
@@ -36,7 +38,7 @@ class GLTFReader: public osgDB::ReaderWriter
         {
             osg::ref_ptr< osg::Geometry > geom = new osg::Geometry;
             osg::Vec4Array* colors = new osg::Vec4Array;
-            colors->push_back(osg::Vec4(1,0,0,1));
+            colors->push_back(osg::Vec4(1,1,1,1));
             geom->setColorArray(colors, osg::Array::BIND_OVERALL);
 
             for (size_t i = 0; i < mesh.primitives.size(); i++) {
@@ -46,7 +48,77 @@ class GLTFReader: public osgDB::ReaderWriter
                     return 0;
                 }
 
-                OSG_NOTICE << "Primitive " << i << std::endl;
+                OSG_NOTICE << "Material index " << primitive.material << std::endl;
+                if (primitive.material >= 0)
+                {                    
+                    OSG_NOTICE << "Getting material " << primitive.material << std::endl;
+                    tinygltf::Material& material = model.materials[primitive.material];
+                    OSG_NOTICE << "Material " << material.name << std::endl;
+
+                    OSG_NOTICE << "extCommonValues=" << material.extCommonValues.size() << std::endl;
+                    for (ParameterMap::iterator paramItr = material.extCommonValues.begin(); paramItr != material.extCommonValues.end(); ++paramItr)
+                    {
+                        OSG_NOTICE << paramItr->first << "=" << paramItr->second.string_value << std::endl;
+                    }
+
+                    OSG_NOTICE << "additionalValues=" << material.additionalValues.size() << std::endl;
+                    for (ParameterMap::iterator paramItr = material.additionalValues.begin(); paramItr != material.additionalValues.end(); ++paramItr)
+                    {
+                        OSG_NOTICE << paramItr->first << "=" << paramItr->second.string_value << std::endl;
+                    }
+                    OSG_NOTICE << "extPBRValues=" << material.extPBRValues.size() << std::endl;
+                    for (ParameterMap::iterator paramItr = material.extPBRValues.begin(); paramItr != material.extPBRValues.end(); ++paramItr)
+                    {
+                        OSG_NOTICE << paramItr->first << "=" << paramItr->second.string_value << std::endl;
+                    } 
+                    OSG_NOTICE << "values=" << material.values.size() << std::endl;
+                    for (ParameterMap::iterator paramItr = material.values.begin(); paramItr != material.values.end(); ++paramItr)
+                    {
+                        if (paramItr->first == "baseColorTexture")
+                        {
+                            int index = paramItr->second.json_double_value["index"];
+                            tinygltf::Texture& texture = model.textures[index];
+                            Sampler& sampler = model.samplers[texture.sampler];
+
+                            osg::Texture2D* tex  = new osg::Texture2D;
+                            tex->setFilter(osg::Texture::MIN_FILTER, (osg::Texture::FilterMode)sampler.minFilter);
+                            tex->setFilter(osg::Texture::MAG_FILTER, (osg::Texture::FilterMode)sampler.magFilter);
+                            tex->setWrap(osg::Texture::WRAP_S, (osg::Texture::WrapMode)sampler.wrapS);
+                            tex->setWrap(osg::Texture::WRAP_T, (osg::Texture::WrapMode)sampler.wrapT);
+                            tex->setWrap(osg::Texture::WRAP_R, (osg::Texture::WrapMode)sampler.wrapR);
+
+                            tinygltf::Image& image = model.images[texture.source];
+                            osg::Image* img = new osg::Image;
+                            
+                            BufferView& bufferView = model.bufferViews[image.bufferView];
+                            Buffer& buffer = model.buffers[bufferView.buffer];
+                            
+                            /*
+                            // TODO:  How do you get the actual data from tinygltf?
+                            unsigned char* imgDatanew unsigned char[bufferView.byteLength];
+                            //memcpy(imgData, (&buffer.data.at(0) + bufferView.byteOffset), bufferView.byteLength);
+                            //memcpy(imgData, (&buffer.data.at(0) + bufferView.byteOffset), buffer.data.size());
+                            //OSG_NOTICE << "Byte length " << bufferView.byteLength << std::endl;
+                            OSG_NOTICE << "Image component " << image.component << std::endl;
+                            OSG_NOTICE << "Image size" << image.width << "x" << image.height << std::endl;
+                            OSG_NOTICE << "Buffer size " << buffer.data.size() << std::endl;
+                            OSG_NOTICE << "Image URI " << image.uri << std::endl;
+                            //img->setImage(image.width, image.height, 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, imgData, osg::Image::USE_NEW_DELETE);
+                            //tex->setImage(img);                            
+                            */
+                            /*
+                            if (!image.uri.empty())
+                            {
+                                osg::Image* img = osgDB::readImageFile(image.uri);
+                                img->flipVertical();
+                                tex->setImage(img);
+                            }
+                            */
+
+                            geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex, osg::StateAttribute::ON);
+                        }                        
+                    } 
+                }
 
                 std::map<std::string, int>::const_iterator it(primitive.attributes.begin());
                 std::map<std::string, int>::const_iterator itEnd(
@@ -55,7 +127,6 @@ class GLTFReader: public osgDB::ReaderWriter
                 for (; it != itEnd; it++) {
                     const tinygltf::Accessor &accessor = model.accessors[it->second];
 
-                    OSG_NOTICE << "Accessor=" << accessor.name << std::endl;
 
                     int size = 1;
                     if (accessor.type == TINYGLTF_TYPE_SCALAR) {
@@ -70,8 +141,6 @@ class GLTFReader: public osgDB::ReaderWriter
                         assert(0);
                     }
                     
-                    OSG_NOTICE << "Size=" << size << " Count " << accessor.count << std::endl;
-
                     OSG_NOTICE << it->first << std::endl;
 
                     if (it->first.compare("POSITION") == 0 && size == 3)
@@ -81,50 +150,76 @@ class GLTFReader: public osgDB::ReaderWriter
                         osg::Vec3Array* vertices = new osg::Vec3Array;
                         geom->setVertexArray( vertices );
 
-                        float* verts = (float*)(&buffer.data.at(0) + bufferView.byteOffset);
-                        // Read all the floats
-                        /*
-                        for (unsigned int j = 0; j < size * accessor.count; j++)
+                        float* array = (float*)(&buffer.data.at(0) + accessor.byteOffset + bufferView.byteOffset);
+                        unsigned int pos = 0;
+                        for (unsigned int j = 0; j < accessor.count; j++)
                         {
-                            OSG_NOTICE << "Float " << j << "=" << verts[j] << std::endl;
-                        }
-                        */
-
-                        for (unsigned int j = 0; j < size * accessor.count;)
-                        {
-                            float x = verts[j++];
-                            float y = verts[j++];
-                            float z = verts[j++];                            
-                            OSG_NOTICE << x << ", " << y << ", " << z << std::endl;
+                            float x = array[pos];
+                            float y = array[pos+1];
+                            float z = array[pos+2];  
+                            if (bufferView.byteStride > 0)
+                            {
+                                pos += (bufferView.byteStride / 4);
+                            }
+                            else
+                            {
+                                pos += 3;
+                            }
                             vertices->push_back(osg::Vec3(x,y,z));
                         }
                     }    
 
                     if (it->first.compare("NORMAL") == 0 && size == 3)
-                    {                        
+                    {                
+
                         BufferView& bufferView = model.bufferViews[accessor.bufferView];
                         Buffer& buffer = model.buffers[bufferView.buffer];
                         osg::Vec3Array* normals = new osg::Vec3Array;
                         geom->setNormalArray( normals, osg::Array::BIND_PER_VERTEX );
 
-                        float* normalArray = (float*)(&buffer.data.at(0) + bufferView.byteOffset);
-                        // Read all the floats
-                        /*
-                        for (unsigned int j = 0; j < size * accessor.count; j++)
+                        float* array = (float*)(&buffer.data.at(0) + accessor.byteOffset + bufferView.byteOffset);
+                        unsigned int pos = 0;
+                        for (unsigned int j = 0; j < accessor.count; j++)
                         {
-                            OSG_NOTICE << "Float " << j << "=" << verts[j] << std::endl;
-                        }
-                        */
-
-                        for (unsigned int j = 0; j < size * accessor.count;)
-                        {
-                            float x = normalArray[j++];
-                            float y = normalArray[j++];
-                            float z = normalArray[j++];       
-                            OSG_NOTICE << "Read normal " << x << ", " << y << ", " << z << std::endl;
+                            float x = array[pos];
+                            float y = array[pos+1];
+                            float z = array[pos+2];  
+                            if (bufferView.byteStride > 0)
+                            {
+                                pos += (bufferView.byteStride / 4);
+                            }
+                            else
+                            {
+                                pos += 3;
+                            }
                             normals->push_back(osg::Vec3(x,y,z));
                         }
-                    }                  
+                    }
+
+                    if (it->first.compare("TEXCOORD_0") == 0 && size == 2)
+                    {                        
+                        BufferView& bufferView = model.bufferViews[accessor.bufferView];
+                        Buffer& buffer = model.buffers[bufferView.buffer];
+                        osg::Vec2Array* texCoords = new osg::Vec2Array;
+                        geom->setTexCoordArray(0, texCoords, osg::Array::BIND_PER_VERTEX );
+
+                        float* array = (float*)(&buffer.data.at(0) + accessor.byteOffset + bufferView.byteOffset);
+                        unsigned int pos = 0;
+                        for (unsigned int j = 0; j < accessor.count; j++)
+                        {
+                            float s = array[pos];
+                            float t = array[pos+1];
+                            if (bufferView.byteStride > 0)
+                            {
+                                pos += (bufferView.byteStride / 4);
+                            }
+                            else
+                            {
+                                pos += 2;
+                            }
+                            texCoords->push_back(osg::Vec2(s,t));
+                        }
+                    } 
                 }
 
                 const tinygltf::Accessor &indexAccessor =
@@ -152,7 +247,7 @@ class GLTFReader: public osgDB::ReaderWriter
                     if (indexAccessor.componentType == GL_UNSIGNED_SHORT)
                     {
                         osg::DrawElementsUShort* drawElements = new osg::DrawElementsUShort(mode);
-                        unsigned short* indices = (unsigned short*)(&buffer.data.at(0) + bufferView.byteOffset);
+                        unsigned short* indices = (unsigned short*)(&buffer.data.at(0) + bufferView.byteOffset + indexAccessor.byteOffset);
                         for (unsigned int j = 0; j < indexAccessor.count; j++)
                         {
                             unsigned short index = indices[j];
@@ -163,7 +258,7 @@ class GLTFReader: public osgDB::ReaderWriter
                     else if (indexAccessor.componentType == GL_UNSIGNED_INT)
                     {
                         osg::DrawElementsUInt* drawElements = new osg::DrawElementsUInt(mode);
-                        unsigned int* indices = (unsigned int*)(&buffer.data.at(0) + bufferView.byteOffset);
+                        unsigned int* indices = (unsigned int*)(&buffer.data.at(0) + bufferView.byteOffset + indexAccessor.byteOffset);
                         for (unsigned int j = 0; j < indexAccessor.count; j++)
                         {
                             unsigned int index = indices[j];
@@ -174,7 +269,7 @@ class GLTFReader: public osgDB::ReaderWriter
                     else if (indexAccessor.componentType == GL_UNSIGNED_BYTE)
                     {
                         osg::DrawElementsUByte* drawElements = new osg::DrawElementsUByte(mode);
-                        unsigned char* indices = (unsigned char*)(&buffer.data.at(0) + bufferView.byteOffset);
+                        unsigned char* indices = (unsigned char*)(&buffer.data.at(0) + bufferView.byteOffset + indexAccessor.byteOffset);
                         for (unsigned int j = 0; j < indexAccessor.count; j++)
                         {
                             unsigned char index = indices[j];
@@ -280,8 +375,6 @@ class GLTFReader: public osgDB::ReaderWriter
                 OSG_WARN << err << std::endl;
                 return ReadResult::ERROR_IN_READING_FILE;
             }
-
-            OSG_NOTICE << "Loaded " << fileName << std::endl;
 
             return makeNodeFromModel( model );
         }    
