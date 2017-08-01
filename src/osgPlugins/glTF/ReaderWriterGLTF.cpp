@@ -106,14 +106,12 @@ class GLTFReader: public osgDB::ReaderWriter
                             //img->setImage(image.width, image.height, 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, imgData, osg::Image::USE_NEW_DELETE);
                             //tex->setImage(img);                            
                             */
-                            /*
                             if (!image.uri.empty())
                             {
                                 osg::Image* img = osgDB::readImageFile(image.uri);
                                 img->flipVertical();
                                 tex->setImage(img);
                             }
-                            */
 
                             geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex, osg::StateAttribute::ON);
                         }                        
