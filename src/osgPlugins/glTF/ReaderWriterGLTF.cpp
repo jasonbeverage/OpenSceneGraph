@@ -24,15 +24,11 @@ class GLTFReader: public osgDB::ReaderWriter
     public:
         GLTFReader()
         {
-            supportsExtension("gltf","glTF loader");
+            supportsExtension("gltf","glTF ascii loader");
+            supportsExtension("glb","glTF binary loader");
         }
 
         virtual const char* className() const { return "glTF Loader"; }
-
-        virtual bool acceptsExtension(const std::string& extension) const
-        {
-            return osgDB::equalCaseInsensitive(extension,"gltf");
-        }
 
         osg::Node* makeMesh(tinygltf::Model &model, tinygltf::Mesh& mesh) const
         {
@@ -367,7 +363,17 @@ class GLTFReader: public osgDB::ReaderWriter
             Model model; 
             TinyGLTF loader;
             std::string err;
-            bool ret = loader.LoadASCIIFromFile(&model, &err, fileName);
+
+            OSG_NOTICE << fileName << std::endl;
+            
+            if (ext == "glb")
+            {
+                loader.LoadBinaryFromFile(&model, &err, fileName);
+            }
+            else
+            {
+                loader.LoadASCIIFromFile(&model, &err, fileName);
+            }
             if (!err.empty()) {
                 OSG_NOTICE << "gltf Error loading " << fileName << std::endl;
                 OSG_WARN << err << std::endl;
