@@ -84,31 +84,19 @@ class GLTFReader: public osgDB::ReaderWriter
                             tex->setWrap(osg::Texture::WRAP_R, (osg::Texture::WrapMode)sampler.wrapR);
 
                             tinygltf::Image& image = model.images[texture.source];
-                            osg::Image* img = new osg::Image;
-                            
-                            BufferView& bufferView = model.bufferViews[image.bufferView];
-                            Buffer& buffer = model.buffers[bufferView.buffer];
-                            
-                            /*
-                            // TODO:  How do you get the actual data from tinygltf?
-                            unsigned char* imgDatanew unsigned char[bufferView.byteLength];
-                            //memcpy(imgData, (&buffer.data.at(0) + bufferView.byteOffset), bufferView.byteLength);
-                            //memcpy(imgData, (&buffer.data.at(0) + bufferView.byteOffset), buffer.data.size());
-                            //OSG_NOTICE << "Byte length " << bufferView.byteLength << std::endl;
-                            OSG_NOTICE << "Image component " << image.component << std::endl;
-                            OSG_NOTICE << "Image size" << image.width << "x" << image.height << std::endl;
-                            OSG_NOTICE << "Buffer size " << buffer.data.size() << std::endl;
-                            OSG_NOTICE << "Image URI " << image.uri << std::endl;
-                            //img->setImage(image.width, image.height, 1, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, imgData, osg::Image::USE_NEW_DELETE);
-                            //tex->setImage(img);                            
-                            */
-                            if (!image.uri.empty())
-                            {
-                                osg::Image* img = osgDB::readImageFile(image.uri);
-                                img->flipVertical();
-                                tex->setImage(img);
-                            }
+                            osg::ref_ptr< osg::Image> img = new osg::Image;
 
+                            GLenum format = GL_RGB;
+                            if (image.component == 4) format = GL_RGBA;
+
+                            if (image.image.size() > 0)
+                            {
+                                unsigned char *imgData = new unsigned char[image.image.size()];
+                                memcpy(imgData, &image.image.at(0), image.image.size());
+                                img->setImage(image.width, image.height, 1, format, format, GL_UNSIGNED_BYTE, imgData, osg::Image::AllocationMode::USE_NEW_DELETE);
+                            }   
+                            
+                            tex->setImage( img );
                             geom->getOrCreateStateSet()->setTextureAttributeAndModes(0, tex, osg::StateAttribute::ON);
                         }                        
                     } 
